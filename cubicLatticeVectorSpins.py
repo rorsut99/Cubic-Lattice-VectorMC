@@ -24,9 +24,9 @@ start=time.time()
 # Nsw=int(sys.argv[4])
 
 
-Lx=4
-Ly=4
-Lz=4
+Lx=6
+Ly=6
+Lz=6
 
 #Heisenberg Exchange
 Jex=1.0
@@ -50,8 +50,11 @@ beta=np.array([Axy,Ayy,Ayz])
 gamma=np.array([Axz,Ayz,Azz])
 
 
+thermTime=100000
 N=Lx*Ly*Lz
-Nsw=10000
+Nsw_Samp=100000
+
+Nsw=thermTime+Nsw_Samp
 
 
 T=0.1
@@ -207,9 +210,10 @@ def flipEnergy(theta,phi,ix,iy,iz,thetaNew,phiNew):
 
 @numba.njit
 def simulate(theta,phi,T):
+    Eseries=np.zeros(Nsw)
     Etot=totalEnergy(theta,phi)
-    Etot-=totEnergyMag(h,Theta_mag,Phi_mag,theta,phi)
-    Etot-=totEnergyAni(alpha,beta,gamma,theta,phi)
+    # Etot-=totEnergyMag(h,Theta_mag,Phi_mag,theta,phi)
+    # Etot-=totEnergyAni(alpha,beta,gamma,theta,phi)
 
     B=1.0/T
     for t in range(0,Nsw):
@@ -222,8 +226,8 @@ def simulate(theta,phi,T):
             Theta_prop=(2*np.pi-Theta_0 if(quadTheta<0.5) else Theta_0)
             
             dE=flipEnergy(theta,phi,ix,iy,iz,Theta_prop,Phi_prop)
-            dE-=flipEnergyMag(theta[ix][iy][iz],phi[ix][iy][iz],Theta_prop,Phi_prop,Theta_mag,Phi_mag)
-            dE-=flipEnergyAni(alpha,beta,gamma,theta[ix][iy][iz],phi[ix][iy][iz],Theta_prop,Phi_prop)
+            # dE-=flipEnergyMag(theta[ix][iy][iz],phi[ix][iy][iz],Theta_prop,Phi_prop,Theta_mag,Phi_mag)
+            # dE-=flipEnergyAni(alpha,beta,gamma,theta[ix][iy][iz],phi[ix][iy][iz],Theta_prop,Phi_prop)
             
             check=(dE < 0 or  B*dE < -np.log(random.uniform(0,1)))
             if check:
@@ -231,8 +235,9 @@ def simulate(theta,phi,T):
                 theta[ix][iy][iz]=Theta_prop
                 phi[ix][iy][iz]=Phi_prop    
                 Etot+=dE
+        Eseries[t]=Etot
                            
-    return(Etot,theta,phi)
+    return(Eseries[int(thermTime):],theta,phi)
         
     
                 
@@ -249,7 +254,7 @@ E2=totalEnergy(theta,phi)
 
 mag=calcMag(theta, phi, 0, 0)
 
-print(Esim/N)
+print(np.mean(Esim)/N)
 # print(mag/N)
 end=time.time()
 print('Runtime:',end-start)
