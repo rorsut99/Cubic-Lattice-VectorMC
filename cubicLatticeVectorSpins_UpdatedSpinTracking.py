@@ -28,6 +28,8 @@ Lx=6
 Ly=6
 Lz=6
 
+#Coordination Number
+coordNum=6
 #Heisenberg Exchange
 Jex=1.0
 
@@ -85,8 +87,8 @@ def initSpins():
     for ix in range(0,Lx):
         for iy in range(0,Ly):
             for iz in range(0,Lx):
-                Phi_0=np.arccos(random.uniform(-1.0,1.0))
-                Theta_0=np.arccos(random.uniform(-1.0,1.0))
+                Phi_0=np.arccos(np.random.uniform(-1.0,1.0))
+                Theta_0=np.arccos(np.random.uniform(-1.0,1.0))
                 quadTheta=random.choice([0,1])
                 Theta_0=(2*np.pi-Theta_0 if(quadTheta==1) else Theta_0)
                 
@@ -235,8 +237,27 @@ def flipEnergy(Xpos,Ypos,Zpos,ix,iy,iz,xNew,yNew,zNew):
 #     return(mag)
 
 ################################################################################################################
+@numba.njit(cache=True,fastmath=True)
+def meanField(xPos,yPos,zPos,ix,iy,iz):
+    ixP,ixM = (ix+1)%Lx, (ix-1)%Lx
+    iyP,iyM = (iy+1)%Ly, (iy-1)%Ly
+    izP,izM = (iz+1)%Lz, (iz-1)%Lz
+    meanX=xPos[ixP][iy][iz]+xPos[ixM][iy][iz]+xPos[ix][iyP][iz]+xPos[ix][iyM][iz]+xPos[ix][iy][izP]+xPos[ix][iy][izM]
+    meanY=yPos[ixP][iy][iz]+yPos[ixM][iy][iz]+yPos[ix][iyP][iz]+yPos[ix][iyM][iz]+yPos[ix][iy][izP]+yPos[ix][iy][izM]
+    meanZ=zPos[ixP][iy][iz]+zPos[ixM][iy][iz]+zPos[ix][iyP][iz]+zPos[ix][iyM][iz]+zPos[ix][iy][izP]+zPos[ix][iy][izM]
+    return(-meanX/coordNum,-meanY/coordNum,-meanZ/coordNum)
+
+@numba.njit(cache=True,fastmath=True)
+def deterministicUpdate(xPos,yPos,zPos):
+    for t in range(0,N):
+        ix, iy, iz=random.randint(0,Lx-1), random.randint(0,Ly-1),random.randint(0,Lz-1)
+
+        xPos[ix][iy][iz],yPos[ix][iy][iz],zPos[ix][iy][iz]=meanField(xPos,yPos,zPos,ix,iy,iz)
+    return(xPos,yPos,zPos)
+    
 
 
+############################################################################################################3####
 
 @numba.njit(cache=True,fastmath=True)
 def simulate(xPos,yPos,zPos,T):
@@ -248,9 +269,9 @@ def simulate(xPos,yPos,zPos,T):
     for t in range(0,Nsw):
         for t0 in range(0,N):
             ix, iy, iz=random.randint(0,Lx-1), random.randint(0,Ly-1),random.randint(0,Lz-1)
-            Phi_prop=math.acos(random.random())
+            Phi_prop=math.acos(random.uniform(-1.0,1.0))
             
-            Theta_0=math.acos(random.random())
+            Theta_0=math.acos(random.uniform(-1.0,1.0))
             quadTheta=random.uniform(0,1)
             Theta_prop=(2*np.pi-Theta_0 if(quadTheta<0.5) else Theta_0)
             
@@ -289,7 +310,8 @@ xPos,yPos,zPos=initSpins()
 
 Esim,xPos,yPos,zPos=simulate(xPos,yPos,zPos,T)
 # E2=totalEnergy(xPos,yPos,zPos)
-
+print(totalEnergy(xPos,yPos,zPos)/N)
+xPos,yPos,zPos=deterministicUpdate(xPos, yPos, zPos)
 
 # checkMagX=0.0
 # checkMagY=0.0
@@ -298,6 +320,7 @@ Esim,xPos,yPos,zPos=simulate(xPos,yPos,zPos,T)
 # mag=calcMag(xPos,yPos,zPos,checkMagX,checkMagY,checkMagZ)
 
 print(Esim/N)
+print(totalEnergy(xPos,yPos,zPos)/N)
 
 end=time.time()
 print('Runtime:',end-start)
